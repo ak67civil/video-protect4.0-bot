@@ -1,4 +1,3 @@
-https://github.com/pyrogram/pyrogram/archive/master.zip
+pyrogram
 tgcrypto
 motor
-dnspython
