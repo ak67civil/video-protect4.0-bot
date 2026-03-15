@@ -11,7 +11,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 MONGO_DB_URI = os.environ.get("MONGO_DB_URI")
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 
-# Database
+# Database Setup
 db_client = AsyncIOMotorClient(MONGO_DB_URI)
 db = db_client["VideoProtectDB"]
 connections = db["links"]
@@ -32,16 +32,16 @@ async def start_handler(client, message):
         except:
             await message.reply_text("❌ Link Expired!")
     else:
-        await message.reply_text("🛡️ Video Protection Bot Online!")
+        await message.reply_text("🛡️ Bot Online and Protected!")
 
 @app.on_message(filters.command("connect") & filters.user(OWNER_ID))
 async def connect_cmd(client, message):
     try:
         args = message.text.split()
         await connections.update_one({"source": int(args[1])}, {"$set": {"dest": int(args[2])}}, upsert=True)
-        await message.reply_text(f"✅ Connection Successful!")
+        await message.reply_text("✅ Connection Done!")
     except:
-        await message.reply_text("Usage: `/connect -100Source -100Dest` ")
+        await message.reply_text("Format: `/connect -100Source -100Dest` ")
 
 @app.on_message((filters.video | filters.document) & ~filters.forwarded)
 async def auto_post(client, message):
@@ -51,16 +51,21 @@ async def auto_post(client, message):
     watch_link = f"https://t.me/{bot_info.username}?start={message.chat.id}_{message.id}"
     await client.send_message(
         conn["dest"], 
-        f"🎬 **Title:** `{message.caption or 'New Content'}`", 
+        f"🎬 **Title:** `{message.caption or 'New Video'}`", 
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Watch Video", url=watch_link)]])
     )
 
-# Python 3.14 compatible starter
+# THE CRITICAL FIX FOR RUNTIME ERROR
 async def main():
     async with app:
-        print("🚀 Bot Started!")
+        print("🚀 BOT IS LIVE!")
         await asyncio.Future()
 
 if __name__ == "__main__":
-    asyncio.run(main())
-    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        pass
+        
