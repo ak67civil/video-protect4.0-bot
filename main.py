@@ -11,11 +11,11 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 MONGO_DB_URI = os.environ.get("MONGO_DB_URI")
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 
-# Database Setup
 db_client = AsyncIOMotorClient(MONGO_DB_URI)
 db = db_client["VideoProtectDB"]
 connections = db["links"]
 
+# Bot Client (No more .run(), purely async)
 app = Client("Protector", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 @app.on_message(filters.command("start") & filters.private)
@@ -23,25 +23,20 @@ async def start_handler(client, message):
     if len(message.command) > 1:
         data = message.command[1].split("_")
         try:
-            await client.copy_message(
-                chat_id=message.chat.id, 
-                from_chat_id=int(data[0]), 
-                message_id=int(data[1]), 
-                protect_content=True
-            )
+            await client.copy_message(chat_id=message.chat.id, from_chat_id=int(data[0]), message_id=int(data[1]), protect_content=True)
         except:
-            await message.reply_text("❌ Link Expired!")
+            await message.reply_text("❌ Expired!")
     else:
-        await message.reply_text("🛡️ Bot Online and Protected!")
+        await message.reply_text("🛡️ Online!")
 
 @app.on_message(filters.command("connect") & filters.user(OWNER_ID))
 async def connect_cmd(client, message):
     try:
         args = message.text.split()
         await connections.update_one({"source": int(args[1])}, {"$set": {"dest": int(args[2])}}, upsert=True)
-        await message.reply_text("✅ Connection Done!")
+        await message.reply_text("✅ Done!")
     except:
-        await message.reply_text("Format: `/connect -100Source -100Dest` ")
+        await message.reply_text("`/connect -100Source -100Dest` ")
 
 @app.on_message((filters.video | filters.document) & ~filters.forwarded)
 async def auto_post(client, message):
@@ -49,23 +44,16 @@ async def auto_post(client, message):
     if not conn: return
     bot_info = await client.get_me()
     watch_link = f"https://t.me/{bot_info.username}?start={message.chat.id}_{message.id}"
-    await client.send_message(
-        conn["dest"], 
-        f"🎬 **Title:** `{message.caption or 'New Video'}`", 
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Watch Video", url=watch_link)]])
-    )
+    await client.send_message(conn["dest"], f"🎬 `{message.caption or 'Video'}`", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Watch", url=watch_link)]]))
 
-# THE CRITICAL FIX FOR RUNTIME ERROR
-async def main():
-    async with app:
-        print("🚀 BOT IS LIVE!")
-        await asyncio.Future()
+# --- THE REAL FIX FOR PYTHON 3.14 ---
+async def start_bot():
+    await app.start()
+    print("🚀 BOT STARTED!")
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(main())
-    except KeyboardInterrupt:
-        pass
-        
+    loop.run_until_complete(start_bot())
+    
