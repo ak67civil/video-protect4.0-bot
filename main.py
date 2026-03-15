@@ -1,6 +1,6 @@
 import os
 import asyncio
-from pyrogram import Client, filters, errors
+from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -9,15 +9,12 @@ API_ID = int(os.environ.get("API_ID", "33401543"))
 API_HASH = os.environ.get("API_HASH", "7cdea5bbc8bd991b4a49807ce86")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 MONGO_DB_URI = os.environ.get("MONGO_DB_URI")
-LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", "0"))
-# Single ID handle karne ke liye simple logic
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 
-# Database Setup
+# Database
 db_client = AsyncIOMotorClient(MONGO_DB_URI)
 db = db_client["VideoProtectDB"]
 connections = db["links"]
-analytics = db["user_stats"]
 
 app = Client("Protector", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -25,23 +22,19 @@ app = Client("Protector", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 async def start_handler(client, message):
     if len(message.command) > 1:
         data = message.command[1].split("_")
-        src_id, msg_id = int(data[0]), int(data[1])
-        await analytics.update_one({"user_id": message.from_user.id}, {"$inc": {"count": 1}, "$set": {"name": message.from_user.first_name}}, upsert=True)
         try:
-            # Protect Content (Forward Off)
-            await client.copy_message(chat_id=message.chat.id, from_chat_id=src_id, message_id=msg_id, protect_content=True)
+            await client.copy_message(chat_id=message.chat.id, from_chat_id=int(data[0]), message_id=int(data[1]), protect_content=True)
         except:
-            await message.reply_text("❌ Link Expired or Bot not Admin!")
+            await message.reply_text("❌ Link Expired!")
     else:
-        await message.reply_text("🛡️ Video Protection Bot Online!")
+        await message.reply_text("🛡️ Bot Online!")
 
 @app.on_message(filters.command("connect") & filters.user(OWNER_ID))
 async def connect_cmd(client, message):
     try:
         args = message.text.split()
-        src, dst = int(args[1]), int(args[2])
-        await connections.update_one({"source": src}, {"$set": {"dest": dst}}, upsert=True)
-        await message.reply_text(f"✅ Connected: `{src}` ➡️ `{dst}`")
+        await connections.update_one({"source": int(args[1])}, {"$set": {"dest": int(args[2])}}, upsert=True)
+        await message.reply_text(f"✅ Connected!")
     except:
         await message.reply_text("Usage: `/connect -100Source -100Dest` ")
 
@@ -53,12 +46,7 @@ async def auto_post(client, message):
     watch_link = f"https://t.me/{bot_info.username}?start={message.chat.id}_{message.id}"
     await client.send_message(conn["dest"], f"🎬 **Title:** `{message.caption or 'New Video'}`", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Watch Video", url=watch_link)]]))
 
-# --- THE MODERN START ---
-async def main():
-    await app.start()
-    print("🚀 Bot Started Successfully!")
-    await asyncio.Future() 
-
+# --- THE FIX FOR PYTHON 3.14 ---
 if __name__ == "__main__":
-    asyncio.run(main())
+    app.run()
     
